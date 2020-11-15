@@ -5,6 +5,7 @@
 #include <time.h>
 
 #define PERIOD 100000
+#define PARAMSKIP 13 // Use 15 for usage with child procs
 
 // Substrings string s from nth occurence of char c
 const char *nth_strchr(const char *s, int c, int n) 
@@ -81,7 +82,7 @@ char* getPidStats(char *argv[], int argc)
       fgets(buf, sizeof buf, fd);
       fclose(fd);
 
-      strcpy(buf, nth_strchr(buf, ' ', 13));
+      strcpy(buf, nth_strchr(buf, ' ', PARAMSKIP));
       sscanf(buf, "%d %d", &userTimes[i], &sysTimes[i]);
 
       FILE *fg=fopen("/proc/stat", "r");
