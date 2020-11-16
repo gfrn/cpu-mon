@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <time.h>
 
-#define PERIOD 100000
+#define PERIOD 40000
 
 // Substrings string s from nth occurence of char c
 const char *nth_strchr(const char *s, int c, int n) 
@@ -22,8 +22,7 @@ const char *nth_strchr(const char *s, int c, int n)
   return nth;
 }
 
-// Returns sum of all numbers in a given string (space separated)
-int sumOfAll(char *s) 
+int sumOfn(char *s, int n) 
 {
   int sum = 0;
   int cache = 0;
@@ -31,7 +30,7 @@ int sumOfAll(char *s)
 
   strncpy(line, line, 5);
 
-  for (;;)
+  for (int i = 0; i < n; i++)
   {
     sscanf(line, "%d", &cache);
     if ((line = strchr(line, ' ')) == 0) 
@@ -44,9 +43,12 @@ int sumOfAll(char *s)
   return sum;
 }
 
-char* getPidStats(char *argv[], int argc)
+void getPidStats(char *argv[], int argc)
 {
   char procPath[argc-1][32];
+   
+  int pastNonIdleUsage;
+  int nonIdleUsage;
 
   int userTimes[argc-1];
   int pastUserTimes[argc-1];
@@ -54,12 +56,15 @@ char* getPidStats(char *argv[], int argc)
   int sysTimes[argc-1];
   int pastSysTimes[argc-1];
 
-  int totalTimes[argc-1];
-  int pastTotalTimes[argc-1];
+  int totalTimes;
+  int pastTotalTimes;
 
   struct timespec ts;
 
   FILE *fa[argc-1];
+  FILE *ft = fopen("resultsTOTAL.csv", "w");
+  fprintf(ft, "Timestamp,Util\n");
+
   for(int i = 1; i < argc; i++)
   { 
     printf("%d", i);
@@ -88,35 +93,41 @@ char* getPidStats(char *argv[], int argc)
       fgets(buf, sizeof buf, fg);
       fclose(fg);
 
-      totalTimes[i] = sumOfAll(buf);
+      totalTimes = sumOfn(buf, 32);
+      nonIdleUsage = sumOfn(buf, 3);
 
-      if(pastTotalTimes[i] && totalTimes[i] != pastTotalTimes[i]) 
+      if(pastTotalTimes && totalTimes != pastTotalTimes) 
       {
-        float userUtil = 100 * (userTimes[i] - pastUserTimes[i]) / (totalTimes[i] - pastTotalTimes[i]);
-        float sysUtil = 100 * (sysTimes[i] - pastSysTimes[i]) / (totalTimes[i] - pastTotalTimes[i]);
+        float userUtil = 100 * (userTimes[i] - pastUserTimes[i]) / (totalTimes - pastTotalTimes);
+        float sysUtil = 100 * (sysTimes[i] - pastSysTimes[i]) / (totalTimes - pastTotalTimes);
+        float totalUtil = 100 * (nonIdleUsage - pastNonIdleUsage) / (totalTimes - pastTotalTimes);
 
         clock_gettime(CLOCK_MONOTONIC, &ts);
 
-        fprintf(fa[i], "%d.%02ld,%.2f,%.2f\n", ts.tv_sec, ts.tv_nsec/10000000, userUtil, sysUtil);
+        fprintf(fa[i], "%d.%02ld,%.2f,%.2f\n", ts.tv_sec, ts.tv_nsec/10000000, userUtil, sysUtil); 
+      }
+
+      if(!i)
+      {
+        float totalUtil = 100 * (nonIdleUsage - pastNonIdleUsage) / (totalTimes - pastTotalTimes);
+        fprintf(ft, "%d.%02ld,%.2f\n", ts.tv_sec, ts.tv_nsec/10000000, totalUtil);
       }
 
       pastUserTimes[i] = userTimes[i];
       pastSysTimes[i] = sysTimes[i];
-      pastTotalTimes[i] = totalTimes[i];
+      pastTotalTimes = totalTimes;
+      pastNonIdleUsage = nonIdleUsage;
 
       fflush(fa[i]);
+      fflush(ft);
     }
-
     usleep(PERIOD);
   }
-
-  return "Placeholder for loop breaks";
 }
 
 int main(int argc, char *argv[]) {
   if(argc >= 2) {
-    char* result = getPidStats(argv, argc);
-    printf("|%s", result);
+    getPidStats(argv, argc);
   } else {
     printf("Not enough arguments");
   }
