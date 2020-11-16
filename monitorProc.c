@@ -86,7 +86,7 @@ void getPidStats(char *argv[], int argc)
       fgets(buf, sizeof buf, fd);
       fclose(fd);
 
-      strcpy(buf, nth_strchr(buf, ' ', 13));
+      strcpy(buf, nth_strchr(buf, ' ', PARAMSKIP));
       sscanf(buf, "%d %d", &userTimes[i], &sysTimes[i]);
 
       FILE *fg=fopen("/proc/stat", "r");
