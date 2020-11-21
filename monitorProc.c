@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <time.h>
 
-#define PERIOD 40000
+#define PERIOD 100000
 
 // Substrings string s from nth occurence of char c
 const char *nth_strchr(const char *s, int c, int n) 
@@ -56,8 +56,8 @@ void getPidStats(char *argv[], int argc)
   int sysTimes[argc-1];
   int pastSysTimes[argc-1];
 
-  int totalTimes;
-  int pastTotalTimes;
+  int totalTimes[argc];
+  int pastTotalTimes[argc];
 
   struct timespec ts;
 
@@ -86,36 +86,38 @@ void getPidStats(char *argv[], int argc)
       fgets(buf, sizeof buf, fd);
       fclose(fd);
 
-      strcpy(buf, nth_strchr(buf, ' ', PARAMSKIP));
+      strcpy(buf, nth_strchr(buf, ' ', 13));
       sscanf(buf, "%d %d", &userTimes[i], &sysTimes[i]);
 
       FILE *fg=fopen("/proc/stat", "r");
       fgets(buf, sizeof buf, fg);
       fclose(fg);
 
-      totalTimes = sumOfn(buf, 32);
+      totalTimes[i] = sumOfn(buf, 32);
       nonIdleUsage = sumOfn(buf, 3);
+      
+      clock_gettime(CLOCK_MONOTONIC, &ts);
 
-      if(pastTotalTimes && totalTimes != pastTotalTimes) 
+      if(pastTotalTimes[i] && totalTimes[i] > pastTotalTimes[i]) 
       {
-        float userUtil = 100 * (userTimes[i] - pastUserTimes[i]) / (totalTimes - pastTotalTimes);
-        float sysUtil = 100 * (sysTimes[i] - pastSysTimes[i]) / (totalTimes - pastTotalTimes);
-        float totalUtil = 100 * (nonIdleUsage - pastNonIdleUsage) / (totalTimes - pastTotalTimes);
-
-        clock_gettime(CLOCK_MONOTONIC, &ts);
+        float userUtil = 100 * (userTimes[i] - pastUserTimes[i]) / (totalTimes[i] - pastTotalTimes[i]);
+        float sysUtil = 100 * (sysTimes[i] - pastSysTimes[i]) / (totalTimes[i] - pastTotalTimes[i]);
+        float totalUtil = 100 * (nonIdleUsage - pastNonIdleUsage) / (totalTimes[i] - pastTotalTimes[i]);
 
         fprintf(fa[i], "%d.%02ld,%.2f,%.2f\n", ts.tv_sec, ts.tv_nsec/10000000, userUtil, sysUtil); 
       }
 
       if(!i)
       {
-        float totalUtil = 100 * (nonIdleUsage - pastNonIdleUsage) / (totalTimes - pastTotalTimes);
+        float totalUtil = 100 * (nonIdleUsage - pastNonIdleUsage) / (totalTimes[i] - pastTotalTimes[argc-1]);
         fprintf(ft, "%d.%02ld,%.2f\n", ts.tv_sec, ts.tv_nsec/10000000, totalUtil);
+
+	      pastTotalTimes[argc-1] = totalTimes[i];
       }
 
       pastUserTimes[i] = userTimes[i];
       pastSysTimes[i] = sysTimes[i];
-      pastTotalTimes = totalTimes;
+      pastTotalTimes[i] = totalTimes[i];
       pastNonIdleUsage = nonIdleUsage;
 
       fflush(fa[i]);
