@@ -71,10 +71,14 @@ void getPidStats(char *argv[], int argc)
     char saveLoc[32];
 
     snprintf(saveLoc, sizeof saveLoc, "results%s.csv", argv[i]);
-    snprintf(procPath[i-1], sizeof procPath[i], "/proc/%s/stat", argv[i]);
+    if (i == 1) {
+	snprintf(procPath[i-1], sizeof procPath[i-1], "/proc/%s/stat", argv[i]);
+    } else {
+	snprintf(procPath[i-1], sizeof procPath[i-1], "/proc/%s/task/%s/stat", argv[1], argv[i]);
+    }
 
     fa[i-1] = fopen(saveLoc, "w");
-    fprintf(fa[i-1], "Timestamp,Sys Util,Usr Util\n");
+    fprintf(fa[i-1], "Timestamp,Util\n");
   }
   
   for (;;)
@@ -100,11 +104,11 @@ void getPidStats(char *argv[], int argc)
 
       if(pastTotalTimes[i] && totalTimes[i] > pastTotalTimes[i]) 
       {
-        float userUtil = 100 * (userTimes[i] - pastUserTimes[i]) / (totalTimes[i] - pastTotalTimes[i]);
-        float sysUtil = 100 * (sysTimes[i] - pastSysTimes[i]) / (totalTimes[i] - pastTotalTimes[i]);
+        float sumUtil = 100 * ((userTimes[i] - pastUserTimes[i]) + (sysTimes[i] - pastSysTimes[i])) / (totalTimes[i] - pastTotalTimes[i]);
+        //float sysUtil = 100 * (sysTimes[i] - pastSysTimes[i]) / (totalTimes - pastTotalTimes);
         float totalUtil = 100 * (nonIdleUsage - pastNonIdleUsage) / (totalTimes[i] - pastTotalTimes[i]);
 
-        fprintf(fa[i], "%d.%02ld,%.2f,%.2f\n", ts.tv_sec, ts.tv_nsec/10000000, userUtil, sysUtil); 
+        fprintf(fa[i], "%d.%02ld,%.2f\n", ts.tv_sec, ts.tv_nsec/10000000, sumUtil); 
       }
 
       if(!i)
@@ -112,7 +116,7 @@ void getPidStats(char *argv[], int argc)
         float totalUtil = 100 * (nonIdleUsage - pastNonIdleUsage) / (totalTimes[i] - pastTotalTimes[argc-1]);
         fprintf(ft, "%d.%02ld,%.2f\n", ts.tv_sec, ts.tv_nsec/10000000, totalUtil);
 
-	      pastTotalTimes[argc-1] = totalTimes[i];
+	pastTotalTimes[argc-1] = totalTimes[i];
       }
 
       pastUserTimes[i] = userTimes[i];

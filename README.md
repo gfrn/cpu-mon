@@ -1,7 +1,7 @@
 # High Frequency CPU Monitor
-Tool meant for aiding in monitoring singular process CPU loads. Polls /proc/ every 100 ms.
+Tool meant for aiding in monitoring singular process CPU loads. Polls /proc/ every n ms.
 
 ## Usage
 `gcc monitorProc.c -o cpuMon`
 
-`./cpuMon PIDs (separated by spaces)`
+`./cpuMon ParentPID SpawnedThread1 SpawnedThread2 ...`
