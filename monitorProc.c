@@ -22,13 +22,12 @@ const char *nth_strchr(const char *s, int c, int n)
   return nth;
 }
 
+// Gets the sum of first n numbers in string
 int sumOfn(char *s, int n) 
 {
   int sum = 0;
   int cache = 0;
   char *line = s;
-
-  strncpy(line, line, 5);
 
   for (int i = 0; i < n; i++)
   {
@@ -45,33 +44,34 @@ int sumOfn(char *s, int n)
 
 void getPidStats(char *argv[], int argc)
 {
-  char procPath[argc-1][32];
+  int procCount = !strcmp(argv[argc-1], "p") ? argc-2 : argc-1;
+  char procPath[procCount][32];
    
   int pastNonIdleUsage;
   int nonIdleUsage;
 
-  int userTimes[argc-1];
-  int pastUserTimes[argc-1];
+  int userTimes[procCount];
+  int pastUserTimes[procCount];
 
-  int sysTimes[argc-1];
-  int pastSysTimes[argc-1];
+  int sysTimes[procCount];
+  int pastSysTimes[procCount];
 
-  int totalTimes[argc];
-  int pastTotalTimes[argc];
+  int totalTimes[procCount+1];
+  int pastTotalTimes[procCount+1];
 
   struct timespec ts;
 
-  FILE *fa[argc-1];
+  FILE *fa[procCount];
   FILE *ft = fopen("resultsTOTAL.csv", "w");
   fprintf(ft, "Timestamp,Util\n");
 
-  for(int i = 1; i < argc; i++)
+  for(int i = 1; i < procCount+1; i++)
   { 
-    printf("%d", i);
     char saveLoc[32];
 
+    // Treats 1st argument as parent thread, all other listed threads get polled as tasks
     snprintf(saveLoc, sizeof saveLoc, "results%s.csv", argv[i]);
-    if (i == 1) {
+    if (i == 1 || !strcmp(argv[argc-1], "p")) {
 	snprintf(procPath[i-1], sizeof procPath[i-1], "/proc/%s/stat", argv[i]);
     } else {
 	snprintf(procPath[i-1], sizeof procPath[i-1], "/proc/%s/task/%s/stat", argv[1], argv[i]);
@@ -83,14 +83,14 @@ void getPidStats(char *argv[], int argc)
   
   for (;;)
   {
-    for(int i = 0; i < argc-1; i++)
+    for(int i = 0; i < procCount; i++)
     {
       static char buf[128];
       FILE *fd=fopen(procPath[i],"r");
       fgets(buf, sizeof buf, fd);
       fclose(fd);
 
-      strcpy(buf, nth_strchr(buf, ' ', 13));
+      strcpy(buf, nth_strchr(buf, ' ', 13)); // 13 refers to the 13th index of /proc/PID/stat, which is usertime followed by systime
       sscanf(buf, "%d %d", &userTimes[i], &sysTimes[i]);
 
       FILE *fg=fopen("/proc/stat", "r");
@@ -104,19 +104,14 @@ void getPidStats(char *argv[], int argc)
 
       if(pastTotalTimes[i] && totalTimes[i] > pastTotalTimes[i]) 
       {
+        if(!i) {
+            float totalUtil = 100 * (nonIdleUsage - pastNonIdleUsage) / (totalTimes[i] - pastTotalTimes[argc-1]);
+            fprintf(ft, "%d.%02ld,%.2f\n", ts.tv_sec, ts.tv_nsec/10000000, totalUtil);
+        } 
         float sumUtil = 100 * ((userTimes[i] - pastUserTimes[i]) + (sysTimes[i] - pastSysTimes[i])) / (totalTimes[i] - pastTotalTimes[i]);
-        //float sysUtil = 100 * (sysTimes[i] - pastSysTimes[i]) / (totalTimes - pastTotalTimes);
-        float totalUtil = 100 * (nonIdleUsage - pastNonIdleUsage) / (totalTimes[i] - pastTotalTimes[i]);
-
         fprintf(fa[i], "%d.%02ld,%.2f\n", ts.tv_sec, ts.tv_nsec/10000000, sumUtil); 
-      }
 
-      if(!i)
-      {
-        float totalUtil = 100 * (nonIdleUsage - pastNonIdleUsage) / (totalTimes[i] - pastTotalTimes[argc-1]);
-        fprintf(ft, "%d.%02ld,%.2f\n", ts.tv_sec, ts.tv_nsec/10000000, totalUtil);
-
-	pastTotalTimes[argc-1] = totalTimes[i];
+        pastTotalTimes[argc-1] = totalTimes[i];
       }
 
       pastUserTimes[i] = userTimes[i];
@@ -124,6 +119,7 @@ void getPidStats(char *argv[], int argc)
       pastTotalTimes[i] = totalTimes[i];
       pastNonIdleUsage = nonIdleUsage;
 
+      // Performs flush to guarantee that lines are written to file
       fflush(fa[i]);
       fflush(ft);
     }
