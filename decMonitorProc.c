@@ -76,7 +76,7 @@ void getPidStats(char *argv[], int argc)
     snprintf(procPath[i-1], sizeof procPath[i], "/proc/%s/stat", argv[i]);
 
     fa[i-1] = fopen(saveLoc, "w");
-    fprintf(fa[i-1], "Timestamp,Sys Util,Usr Util\n");
+    fprintf(fa[i-1], "Timestamp,Sys Util\n");
   }
   
   for (;;)
