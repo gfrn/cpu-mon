@@ -65,8 +65,7 @@ void getPidStats(char *argv[], int argc)
 
   FILE *fa[argc-1];
   FILE *ft = fopen("resultsTOTAL.csv", "w");
-  f
-    (ft, "Timestamp,Util\n");
+  fprintf(ft, "Timestamp,Util\n");
 
   for(int i = 1; i < argc; i++)
   { 
